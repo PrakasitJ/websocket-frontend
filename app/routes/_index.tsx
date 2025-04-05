@@ -1,6 +1,7 @@
 import { defaultConfigWithRandomUsername, useChat, type SocketConfig } from "~/services/websocket";
 import type { Route } from "./+types/_index";
 import { useState, useCallback, useEffect, useRef } from "react";
+import { useRevalidator } from "react-router";
 
 export function meta({ }: Route.MetaArgs) {
   return [
@@ -13,6 +14,8 @@ export default function Index() {
   const [messageInput, setMessageInput] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
+  const rooms = useRef<number[]>([1, 2]);
+  const validator = useRevalidator();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const config = defaultConfigWithRandomUsername;
@@ -73,9 +76,20 @@ export default function Index() {
     joinRoom(roomId);
   }, [joinRoom]);
 
+  // Handle create room
+  const handleCreateRoom = useCallback((roomId: string) => {
+    joinRoom(roomId);
+    rooms.current.push(Number(roomId));
+    validator.revalidate();
+  }, [joinRoom])
+
   // Handle room leaving
   const handleLeaveRoom = useCallback((roomId: string) => {
     leaveRoom(roomId);
+    rooms.current = rooms.current.filter((room) => {
+      return room !== Number(roomId)
+    });
+    validator.revalidate();
   }, [leaveRoom]);
 
   const handleSendFile = useCallback((file: File) => {
@@ -105,25 +119,25 @@ export default function Index() {
             <h2 className="text-lg font-semibold mb-4">Rooms</h2>
             <div className="space-y-2">
               <button
-                onClick={() => handleJoinRoom("1")}
+                onClick={() => handleCreateRoom(`${rooms.current[rooms.current.length-1]+1}`)}
+                className="w-full p-2 rounded-md text-white bg-green-500 hover:bg-green-600 transition-colors"
+              >
+                + Create Room
+              </button>
+              {rooms.current.map((room) => {
+                return (
+                <button
+                onClick={() => handleJoinRoom(`${room}`)}
                 className={`w-full p-2 rounded-md text-left transition-colors ${
-                  currentRoom === "1"
+                  currentRoom === room.toString()
                     ? "bg-blue-500 text-white"
                     : "bg-gray-100 hover:bg-gray-200"
                 }`}
               >
-                Room 1
+                Room {room}
               </button>
-              <button
-                onClick={() => handleJoinRoom("2")}
-                className={`w-full p-2 rounded-md text-left transition-colors ${
-                  currentRoom === "2"
-                    ? "bg-blue-500 text-white"
-                    : "bg-gray-100 hover:bg-gray-200"
-                }`}
-              >
-                Room 2
-              </button>
+              )
+              } )}
               {currentRoom && (
                 <button
                   onClick={() => handleLeaveRoom(currentRoom)}
